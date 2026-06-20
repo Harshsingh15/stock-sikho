@@ -4,7 +4,7 @@
  */
 
 class StockSikhoAPI {
-  constructor(baseURL = 'http://localhost:5000') {
+  constructor(baseURL = 'https://stock-sikho.onrender.com') {
     this.baseURL = baseURL;
     this.token = localStorage.getItem('token') || null;
   }
