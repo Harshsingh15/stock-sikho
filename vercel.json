@@ -4,7 +4,7 @@
   "rewrites": [
     {
       "source": "/(.*)",
-      "destination": "/stock-simulator.html"
+      "destination": "/index.html"
     }
   ]
 }
