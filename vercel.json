@@ -1,6 +1,4 @@
 {
-  "public": ".",
-  "cleanUrls": false,
   "rewrites": [
     {
       "source": "/(.*)",
