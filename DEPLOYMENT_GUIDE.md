@@ -190,7 +190,6 @@ const API_BASE_URL = window.location.hostname === 'localhost'
 
 const API = new StockSikhoAPI(API_BASE_URL);
 ```
-
 ### 3.3 Deploy on Vercel
 1. Push your code to GitHub (frontend only, or the whole repo)
 2. Go to Vercel dashboard
