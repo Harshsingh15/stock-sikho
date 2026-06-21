@@ -1,0 +1,10 @@
+{
+  "public": ".",
+  "cleanUrls": false,
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/stock-simulator.html"
+    }
+  ]
+}
