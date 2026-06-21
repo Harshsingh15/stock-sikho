@@ -4,6 +4,7 @@ import openpyxl
 from openpyxl.utils import get_column_letter
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
+import re
 import os
 from datetime import datetime, timedelta
 from functools import wraps
@@ -42,15 +43,39 @@ def get_user_row(username):
     """Find user row in Users sheet"""
     wb = openpyxl.load_workbook(EXCEL_FILE)
     ws = wb['Users']
-    
+    uname = (username or '').strip().lower()
+
     for row in range(2, ws.max_row + 1):
-        if ws[f'A{row}'].value == username:
+        cell = ws[f'A{row}'].value
+        if cell and str(cell).strip().lower() == uname:
             return row
     return None
 
 def user_exists(username):
     """Check if user exists"""
     return get_user_row(username) is not None
+
+
+def email_exists(email):
+    """Check if email already exists"""
+    if not email:
+        return False
+    wb = openpyxl.load_workbook(EXCEL_FILE)
+    ws = wb['Users']
+    target = email.strip().lower()
+    for row in range(2, ws.max_row + 1):
+        cell = ws[f'B{row}'].value
+        if cell and str(cell).strip().lower() == target:
+            return True
+    return False
+
+
+def valid_email(email):
+    """Simple email validation"""
+    if not email:
+        return False
+    pattern = r"^[\w\.-]+@[\w\.-]+\.[a-zA-Z]{2,}$"
+    return re.match(pattern, email.strip()) is not None
 
 def get_user_data(username):
     """Get user data"""
@@ -172,15 +197,26 @@ def verify_token(f):
 def register():
     """Register new user"""
     data = request.json
-    username = data.get('username', '').strip()
-    email = data.get('email', '').strip()
+    username = (data.get('username', '') or '').strip()
+    email = (data.get('email', '') or '').strip()
     password = data.get('password', '')
     
     if not username or not email or not password:
         return jsonify({'error': 'Missing fields'}), 400
-    
-    if user_exists(username):
+    # Normalize username to lowercase to enforce uniqueness across cases
+    username_norm = username.lower()
+
+    if user_exists(username_norm):
         return jsonify({'error': 'Username already exists'}), 409
+
+    if not valid_email(email):
+        return jsonify({'error': 'Invalid email address'}), 400
+
+    if email_exists(email):
+        return jsonify({'error': 'Email already in use'}), 409
+
+    if len(password) < 8:
+        return jsonify({'error': 'Password must be at least 8 characters'}), 400
     
     # Add user to Excel
     wb = openpyxl.load_workbook(EXCEL_FILE)
@@ -189,10 +225,11 @@ def register():
     hashed_password = generate_password_hash(password)
     created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     
-    ws.append([username, email, hashed_password, INITIAL_WALLET, 0, created_at])
+    # Store username in normalized form
+    ws.append([username_norm, email.strip().lower(), hashed_password, INITIAL_WALLET, 0, created_at])
     wb.save(EXCEL_FILE)
     
-    token = create_token(username)
+    token = create_token(username_norm)
     
     return jsonify({
         'message': 'Registration successful',
@@ -205,15 +242,17 @@ def register():
 def login():
     """Login user"""
     data = request.json
-    username = data.get('username', '').strip()
+    username = (data.get('username', '') or '').strip()
     password = data.get('password', '')
     
     if not username or not password:
         return jsonify({'error': 'Missing credentials'}), 400
     
+    # Normalize username for lookup
+    username_norm = username.lower()
     wb = openpyxl.load_workbook(EXCEL_FILE)
     ws = wb['Users']
-    row = get_user_row(username)
+    row = get_user_row(username_norm)
     
     if not row:
         return jsonify({'error': 'User not found'}), 404
@@ -223,13 +262,13 @@ def login():
     if not check_password_hash(stored_password, password):
         return jsonify({'error': 'Invalid password'}), 401
     
-    token = create_token(username)
-    user_data = get_user_data(username)
+    token = create_token(username_norm)
+    user_data = get_user_data(username_norm)
     
     return jsonify({
         'message': 'Login successful',
         'token': token,
-        'username': username,
+        'username': user_data['username'],
         'email': user_data['email'],
         'wallet': user_data['wallet_balance'],
         'total_invested': user_data['total_invested']
