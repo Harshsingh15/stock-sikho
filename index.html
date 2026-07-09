@@ -1309,7 +1309,7 @@ function refreshUI() {
   if (modalSym) updateModalTotal();
 }
 
-const dashboardNewsItems = [
+const fallbackDashboardNewsItems = [
   { tag: 'Geopolitics', title: 'War breaks out between two oil-producing nations.' },
   { tag: 'Trade Routes', title: 'A major shipping route is blocked due to geopolitical tensions.' },
   { tag: 'Peace', title: 'A peace agreement is signed after months of conflict.' },
@@ -1321,6 +1321,37 @@ const dashboardNewsItems = [
   { tag: 'Cybersecurity', title: 'A massive cyberattack hits major banks.' },
   { tag: 'Auto', title: 'The government cuts GST on electric vehicles.' }
 ];
+
+let dashboardNewsItems = [...fallbackDashboardNewsItems];
+
+async function loadLiveNews() {
+  const container = document.getElementById('news-banner-list');
+  if (!container) return;
+
+  try {
+    const feedUrl = 'https://feeds.feedburner.com/ndtvprofit-latest';
+    const response = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}`);
+    if (!response.ok) throw new Error('Live news request failed');
+
+    const data = await response.json();
+    const liveItems = (data.items || [])
+      .filter(item => item.title && item.title !== 'No title')
+      .slice(0, 10)
+      .map(item => ({
+        tag: 'Live',
+        title: item.title.replace(/&amp;/g, '&').replace(/&#39;/g, "'")
+      }));
+
+    if (liveItems.length) {
+      dashboardNewsItems = liveItems;
+      renderNewsBanner();
+    }
+  } catch (error) {
+    console.warn('Live news unavailable, showing fallback headlines.', error);
+    dashboardNewsItems = [...fallbackDashboardNewsItems];
+    renderNewsBanner();
+  }
+}
 
 // ─── DASHBOARD ───
 function renderDashboard() {
@@ -1365,6 +1396,7 @@ function renderDashboard() {
 
   renderPortfolioChart(u.portfolioSnapshots);
   renderNewsBanner();
+  loadLiveNews();
   updateTicker();
   renderHoldings(u);
 }
